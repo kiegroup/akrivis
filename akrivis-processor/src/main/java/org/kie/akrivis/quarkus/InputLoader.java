@@ -54,17 +54,27 @@ public class InputLoader {
 
         for (Output output : configuration.outputs) {
             if (Objects.equals(input.getName(), output.name)) {
-                final Optional<String> s = get(configuration.api);
 
-                if (s.isPresent()) {
-                    try {
-                        final Map map = new ObjectMapper().readValue(s.get(), Map.class);
-                        return Optional.of(map.get(output.from));
-                    } catch (JsonProcessingException e) {
-                        throw new RuntimeException(e);
+                if (output.from.startsWith("akrivis")) {
+                    final Optional<String> s = get(output.from);
+                    if (s.isPresent()) {
+                        return Optional.of(s);
+                    } else {
+                        return Optional.empty();
                     }
                 } else {
-                    return Optional.empty();
+                    final Optional<String> s = get(configuration.api);
+
+                    if (s.isPresent()) {
+                        try {
+                            final Map map = new ObjectMapper().readValue(s.get(), Map.class);
+                            return Optional.of(map.get(output.from));
+                        } catch (JsonProcessingException e) {
+                            throw new RuntimeException(e);
+                        }
+                    } else {
+                        return Optional.empty();
+                    }
                 }
             }
         }
@@ -73,7 +83,6 @@ public class InputLoader {
     }
 
     public Optional<String> get(String api) {
-        // TODO why not use a hashmap instead of list for payloads
         for (Payload payload : payloads.getPayloads()) {
             if (Objects.equals(payload.getOrigin(), api)) {
                 return Optional.of(payload.getData());

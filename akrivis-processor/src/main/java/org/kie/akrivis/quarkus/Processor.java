@@ -1,5 +1,6 @@
 package org.kie.akrivis.quarkus;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -17,15 +18,10 @@ import org.kie.yard.api.model.YaRD_JsonMapperImpl;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @ApplicationScoped
 public class Processor {
-
 
     @Inject
     JobRepository jobRepository;
@@ -48,12 +44,11 @@ public class Processor {
             for (Request request : getRequests()) {
                 try {
                     final Map mapRecord = client.target(s).request(MediaType.APPLICATION_JSON).post(Entity.entity(request.json, MediaType.APPLICATION_JSON), Map.class);
-                    final Integer score = (Integer) mapRecord.get("Score");
 
                     final RunResult runResult = new RunResult();
                     runResult.measureName = request.yardModel.getName();
                     runResult.status = "Figure this out";
-                    runResult.measureValue = score;
+                    runResult.measureValue = getFormatted(mapRecord.get("Result"));
                     runResult.maxValue = 100; // TODo 100 will do for now
                     runResult.cardData = request.card.definition;
                     runResult.configurationData = request.card.configuration.definition;
@@ -61,10 +56,20 @@ public class Processor {
                     runResult.runTime = Instant.now();
 
                     cardRepository.getEntityManager().persist(runResult);
+
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
+        }
+    }
+
+    private static String getFormatted(final Object o) throws JsonProcessingException {
+        if (o instanceof Integer result) {
+            return "{ \"score\": %d }".formatted(result);
+        } else {
+            final ObjectMapper objectMapper = new ObjectMapper();
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(o);
         }
     }
 
@@ -76,23 +81,21 @@ public class Processor {
                 final Map<String, Object> maps = new HashMap();
                 final ObjectMapper objectMapper = new ObjectMapper();
                 final Configuration configuration = objectMapper.readValue(card.configuration.definition, Configuration.class);
-        
+
                 final Optional<RawData> rawData = jobRepository.findLatestRawDataByEndPoint(configuration.api);
 
-                if(rawData.isPresent()){
+                if (rawData.isPresent()) {
                     final Optional<RunResult> latestResult = resultRepository.latest(card.id);
 
-                    if(!latestResult.isPresent() || latestResult.get().runTime.isBefore(rawData.get().createdAt)){
-
-                        final Payloads payloads = getPayloads(rawData.get());
-                        final InputLoader inputLoader = new InputLoader(payloads);
+                    if (!latestResult.isPresent() || latestResult.get().runTime.isBefore(rawData.get().createdAt)) {
 
                         final YaRD model = new YaRD_JsonMapperImpl().fromJSON(card.definition);
-                        final Map<String, Object> input = inputLoader.resolve(configuration, model.getInputs());
+                        final Map<String, Object> input = new Inputs(jobRepository).formInput(rawData.get(), configuration, model);
+
                         maps.put("yard", objectMapper.readValue(card.definition, Map.class));
                         maps.put("input", input);
 
-                       result.add(new Request(card, model, maps));
+                        result.add(new Request(card, model, maps));
                     }
                 }
             } catch (NotFoundException | IOException e) {
@@ -100,14 +103,6 @@ public class Processor {
             }
         });
         return result;
-    }
-
-    private Payloads getPayloads(final RawData rawData) {
-        final Payloads payloads = new Payloads();
-
-        payloads.getPayloads().add(new Payload(rawData.job.endpoint, rawData.data));
-
-        return payloads;
     }
 
     private record Request(Card card, YaRD yardModel, Map<String, Object> json) {

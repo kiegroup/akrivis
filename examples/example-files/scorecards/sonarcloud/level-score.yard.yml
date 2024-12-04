@@ -1,11 +1,11 @@
 specVersion: alpha
 kind: YaRD
-name: 'Open QA tickets'
+name: 'Level Score 2'
 inputs:
   - name: Number of Jira Issues
     type: number
 elements:
-  - name: Score
+  - name: Result
     type: Decision
     logic:
       type: DecisionTable
@@ -13,7 +13,6 @@ elements:
       inputs: ['Number of Jira Issues']
       outputComponents: ['Score']
       rules:
-        - ['0', 100]
-        - ['< 20', 50]
-        - ['< 80', 20]
-        - ['-', 0]
+        - [< 75, 20]
+        - [< 80, 50]
+        - [0, 100]

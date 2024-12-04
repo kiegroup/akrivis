@@ -19,8 +19,9 @@ public class RunResult {
     @Column(name = "measure_name")
     public String measureName;
 
-    @Column(name = "measure_value")
-    public Integer measureValue;
+    @Column(name = "measure_value", length = Length.LONG32)
+    @ColumnTransformer(write = "?::jsonb")
+    public String measureValue;
 
     @Column(name = "max_value")
     public Integer maxValue;

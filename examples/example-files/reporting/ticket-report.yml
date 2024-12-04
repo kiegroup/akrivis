@@ -1,0 +1,17 @@
+specVersion: alpha
+kind: YaRD
+name: 'BasePrice'
+inputs:
+  - name: Number of Jira Issues
+    type: Store
+elements:
+  - name: Result
+    type: Decision
+    logic:
+      type: LiteralExpression
+      expression: |
+        java.util.Map result = new java.util.TreeMap();
+        for( int i = 0; i < `Number of Jira Issues`.size; i++ ) {
+          result.put( i, `Number of Jira Issues`.get(i) );
+        }
+        return result;

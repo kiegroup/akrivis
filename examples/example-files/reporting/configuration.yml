@@ -1,0 +1,16 @@
+name: Jira
+api: http://localhost:8081/jira/example1
+sampling: 100
+outputs:
+  - name: Save Times
+    from: akrivis.report.createdAt
+    type: stream
+  - name: Number of Jira Issues
+    from: total
+    type: stream
+max value: 100
+thresholds:
+  - name: Poor
+    limit: 30
+  - name: Ok
+    limit: 50

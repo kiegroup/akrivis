@@ -5,7 +5,7 @@ inputs:
   - name: Number of GitHub Issues
     type: number
 elements:
-  - name: Score
+  - name: Result
     type: Decision
     logic:
       type: DecisionTable

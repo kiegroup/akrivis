@@ -1,5 +1,5 @@
 name: Jira
-api: http://localhost:8081/jira/example3
+api: http://test.com
 outputs:
   - name: Number of Jira Issues
     from: total
