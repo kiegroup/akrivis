@@ -97,9 +97,10 @@ public class CardResource {
         final List<Result> results = new ArrayList<>();
         final List<Card> cards = cardRepository.findAll().stream().toList();
 
-        cards.forEach(card ->
-                resultRepository.latest(card.id).map(runResult ->
-                        results.add(formResult(runResult)))
+        cards.forEach(card -> {
+                    resultRepository.latest(card.id)
+                            .map(runResult -> results.add(formResult(runResult)));
+                }
         );
         return new BackstageResponse<>(results);
     }
@@ -110,7 +111,7 @@ public class CardResource {
                     runResult.card.id,
                     runResult.runTime.getEpochSecond(),
                     runResult.status,
-                    runResult.measureValue,
+                    new ObjectMapper().readValue(runResult.measureValue, Map.class),
                     runResult.measureName,
                     runResult.maxValue,
                     jsonToYaml(runResult.cardData),

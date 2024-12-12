@@ -6,6 +6,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.NonUniqueResultException;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,14 +30,28 @@ public class JobRepository implements PanacheRepository<Job> {
 
     public Optional<RawData> findLatestRawDataByEndPoint(final String endpoint) {
         try {
-            return Optional.of(getEntityManager().createQuery(
-                            """
-                                select r from RawData r where job.endpoint = :endpoint and createdAt =
-                                (select max(createdAt) from RawData where job.id = r.job.id)
-                            """,
+
+            final Job job = getEntityManager().createQuery(
+                            "select j from Job j where endpoint = :endPoint",
+                            Job.class)
+                    .setParameter("endPoint", endpoint)
+                    .getSingleResult();
+
+            final Instant maxCreatedAt = getEntityManager().createQuery(
+                            "select max(createdAt) from RawData where job.id = :jobId",
+                            Instant.class)
+                    .setParameter("jobId", job.id)
+                    .getSingleResult();
+
+            final RawData rawData = getEntityManager().createQuery(
+                            "select r from RawData r where job.id = :jobId and createdAt = :createdAt",
                             RawData.class)
-                    .setParameter("endpoint", endpoint)
-                    .getSingleResult());
+                    .setParameter("jobId", job.id)
+                    .setParameter("createdAt", maxCreatedAt)
+                    .getSingleResult();
+
+            return Optional.of(rawData);
+
         } catch (NoResultException | NonUniqueResultException e) {
             return Optional.empty();
         }
@@ -77,5 +92,14 @@ public class JobRepository implements PanacheRepository<Job> {
                 .executeUpdate();
         Job job = getEntityManager().getReference(Job.class, jobId);
         getEntityManager().remove(job);
+    }
+
+    public List<RawData> findRawDataByJobId(long jobId, int sampling) {
+        return getEntityManager().createQuery("select r from RawData r where job.id = :jobId order by r.id desc",
+                        RawData.class)
+                .setParameter("jobId", jobId)
+                .setMaxResults(sampling) // TODO needs to be smarter
+                .getResultList();
+
     }
 }

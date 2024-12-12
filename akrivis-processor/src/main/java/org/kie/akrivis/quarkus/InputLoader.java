@@ -6,11 +6,15 @@ import org.akrivis.dbmodel.result.Configuration;
 import org.akrivis.dbmodel.result.Output;
 import org.kie.yard.api.model.Input;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 public class InputLoader {
 
     private final Payloads payloads;
+    private HashMap<String, Object> loaders = new HashMap<>();
 
     public InputLoader(Payloads payloads) {
         this.payloads = payloads;
@@ -30,55 +34,43 @@ public class InputLoader {
 
     private Map<String, Object> getLoaders(final Configuration configuration,
                                            final List<Input> inputs) throws NotFoundException {
-        final HashMap<String, Object> loaders = new HashMap<>();
-        final List<Input> notFound = new ArrayList<>();
 
         for (Input input : inputs) {
-            final Optional<Object> o = find(input, configuration);
-            if (o.isPresent()) {
-                loaders.put(input.getName(), o.get());
-            } else {
-                notFound.add(input);
-            }
-        }
-
-        if (!notFound.isEmpty()) {
-            throw new NotFoundException(notFound);
+            final Object o = find(input, configuration);
+            loaders.put(input.getName(), o);
         }
 
         return loaders;
     }
 
-    private Optional<Object> find(final Input input,
-                                  final Configuration configuration) {
+    private Object find(final Input input,
+                        final Configuration configuration) throws NotFoundException {
 
         for (Output output : configuration.outputs) {
             if (Objects.equals(input.getName(), output.name)) {
-                final Optional<String> s = get(configuration.api);
 
-                if (s.isPresent()) {
+                if (output.from.startsWith("akrivis")) {
+                    return get(output.from);
+                } else {
                     try {
-                        final Map map = new ObjectMapper().readValue(s.get(), Map.class);
-                        return Optional.of(map.get(output.from));
+                        return new ObjectMapper()
+                                .readValue(get(configuration.api), Map.class)
+                                .get(output.from);
                     } catch (JsonProcessingException e) {
                         throw new RuntimeException(e);
                     }
-                } else {
-                    return Optional.empty();
                 }
             }
         }
-
-        return Optional.empty();
+        throw new NotFoundException(input.getName());
     }
 
-    public Optional<String> get(String api) {
-        // TODO why not use a hashmap instead of list for payloads
+    private String get(final String api) throws NotFoundException {
         for (Payload payload : payloads.getPayloads()) {
             if (Objects.equals(payload.getOrigin(), api)) {
-                return Optional.of(payload.getData());
+                return payload.getData();
             }
         }
-        return Optional.empty();
+        throw new NotFoundException(api);
     }
 }
